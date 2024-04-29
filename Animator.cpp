@@ -33,7 +33,7 @@ void Animator::OnUpdate() {
 	if(!current_animation.has_value() && !default_animation.has_value()) {
 		return;
 	}
-	std::string animation_name = current_animation.value_or(default_animation.value());
+	std::string animation_name = current_animation.value_or(default_animation.value_or(""));
 	Animation* animation = AnimationManager::GetAnimation(animation_name);
 	// check if the frame should be incremented
 	frames_since_last_frame++;
