@@ -131,25 +131,39 @@ void Renderer::RenderAllText(){
 
 		TextLoader::GetInstance().LoadFont(draw_call.font, draw_call.size);
 		font = TextLoader::GetInstance().GetCurrentFont();
+		// nothing to draw (TTF fails on empty strings)
+		if (draw_call.text_content.empty()) {
+			continue;
+		}
+		// textures are rendered white and cached per content/font/size, then tinted per draw call
+		std::string cache_key = draw_call.text_content + "\x1f" + draw_call.font + "\x1f" + std::to_string(draw_call.size);
 		SDL_Texture* texture = NULL;
-		// check if the text has already been rendered
-		for (auto& text : TextLoader::GetInstance().rendered_text) {
-			if (text.name == draw_call.text_content) {
-				// if the texture has already been generated, use it
-				texture = text.texture;
-                break;
-			}
+		auto cached = TextLoader::GetInstance().rendered_text.find(cache_key);
+		if (cached != TextLoader::GetInstance().rendered_text.end()) {
+			texture = cached->second;
 		}
 		// if the texture has not been generated, create it
 		if (texture == NULL) {
-			SDL_Surface* surface = TTF_RenderText_Solid(font, draw_call.text_content.c_str(), draw_call.font_color);
+			SDL_Surface* surface = TTF_RenderText_Blended(font, draw_call.text_content.c_str(), { 255, 255, 255, 255 });
 			if (surface == NULL) {
 				std::cout << "Error rendering text: " << SDL_GetError() << std::endl;
 				exit(0);
 			}
+			// changing strings (scores, timers) would otherwise grow the cache forever
+			auto& rendered_text = TextLoader::GetInstance().rendered_text;
+			if (rendered_text.size() >= 512) {
+				for (auto& entry : rendered_text) {
+					SDL_DestroyTexture(entry.second);
+				}
+				rendered_text.clear();
+			}
 			texture = SDL_CreateTextureFromSurface(renderer, surface);
-			TextLoader::GetInstance().rendered_text.push_back({ draw_call.text_content, texture });
+			SDL_FreeSurface(surface);
+			SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+			TextLoader::GetInstance().rendered_text[cache_key] = texture;
 		}
+		SDL_SetTextureColorMod(texture, draw_call.font_color.r, draw_call.font_color.g, draw_call.font_color.b);
+		SDL_SetTextureAlphaMod(texture, draw_call.font_color.a);
 		SDL_Rect rect;
 		rect.x = draw_call.x;
 		rect.y = draw_call.y;

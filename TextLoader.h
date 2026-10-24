@@ -55,7 +55,7 @@ public:
 
 	// store a queue of text draw calls
 	static inline std::queue<TextDrawCall> draw_calls;
-	static inline std::vector<Image> rendered_text;
+	static inline std::unordered_map<std::string, SDL_Texture*> rendered_text;
 
 	static inline std::unordered_map<std::string, TTF_Font*> font_cache;
 
