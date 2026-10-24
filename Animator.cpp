@@ -15,37 +15,53 @@ void Animator::OnStart() {
         std::cout << "Animator: actor property is invalid" << std::endl;
         exit(0);
     }
-    
+
     if(lua_default_animation != "")
         default_animation = lua_default_animation;
+	// a script may have already started an animation before this OnStart ran
+	bool already_playing = current_animation.has_value();
+	// use the frames_per_second property unless the animation specifies its own
+	if(!already_playing) {
+		SetFramesPerSecond(frames_per_second);
+	}
 	// preload the default animation
 	if(default_animation.has_value()) {
 		Animation* animation = AnimationManager::GetAnimation(default_animation.value());
 		animation->PreloadFrames();
-        current_frame = animation->frames[current_frame_index];
-		if(animation->frames_per_second.has_value()) {
-			SetFramesPerSecond(animation->frames_per_second.value());
+		if(!already_playing) {
+			active_animation = animation;
+			current_frame = animation->frames[current_frame_index];
+			if(animation->frames_per_second.has_value()) {
+				SetFramesPerSecond(animation->frames_per_second.value());
+			}
 		}
 	}
 }
 
 void Animator::OnUpdate() {
-	if(!current_animation.has_value() && !default_animation.has_value()) {
+	if(active_animation == nullptr) {
 		return;
 	}
-	std::string animation_name = current_animation.value_or(default_animation.value_or(""));
-	Animation* animation = AnimationManager::GetAnimation(animation_name);
+	// a non-positive or NaN rate pauses playback
+	if(!(game_frames_per_animation_frame > 0.0f)) {
+		return;
+	}
 	// check if the frame should be incremented
-	frames_since_last_frame++;
-	if(frames_since_last_frame >= game_frames_per_animation_frame) {
+	frames_since_last_frame += 1.0f;
+	while(frames_since_last_frame >= game_frames_per_animation_frame) {
+		frames_since_last_frame -= game_frames_per_animation_frame;
 		current_frame_index++;
-		if(current_frame_index >= animation->frames.size()) {
+		if(current_frame_index >= active_animation->frames.size()) {
+			// the default animation loops without a callback, so carry the remainder into the next loop
+			bool looping_default = !current_animation.has_value();
+			float remainder = frames_since_last_frame;
 			StopAnimation();
+			if(looping_default) {
+				frames_since_last_frame = remainder;
+			}
+			break;
 		}
-		else {
-			current_frame = animation->frames[current_frame_index];
-		}
-		frames_since_last_frame = 0;
+		current_frame = active_animation->frames[current_frame_index];
 	}
 }
 
@@ -58,24 +74,28 @@ void Animator::OnDestroy() {
 	if(current_animation.has_value()) {
 		AnimationManager::UnloadAnimation(current_animation.value());
 	}
+	active_animation = nullptr;
 }
 
-std::string Animator::GetCurrentFrame() {
+const std::string& Animator::GetCurrentFrame() {
 	return current_frame;
 }
 
 std::string Animator::GetCurrentAnimation() {
-	return current_animation.value_or(default_animation.value());
+	return current_animation.value_or(default_animation.value_or(""));
 }
 
 void Animator::PlayAnimation(const std::string& name) {
 	Animation* animation = AnimationManager::GetAnimation(name);
+	// make sure frames are loaded now rather than mid-playback
+	animation->PreloadFrames();
 	if(animation->frames_per_second.has_value()) {
 		SetFramesPerSecond(animation->frames_per_second.value());
 	}
 	current_animation = name;
+	active_animation = animation;
 	current_frame_index = 0;
-	frames_since_last_frame = 0;
+	frames_since_last_frame = 0.0f;
 	current_frame = animation->frames[current_frame_index];
 }
 
@@ -85,28 +105,38 @@ void Animator::PlayAnimationAtFPS(const std::string& name, float fps) {
 }
 
 void Animator::StopAnimation() {
-    if(current_animation.has_value()){
-        PerformCallback();
-    }
+	bool was_playing = current_animation.has_value();
 	current_animation.reset();
 	current_frame_index = 0;
-	frames_since_last_frame = 0;
+	frames_since_last_frame = 0.0f;
 	if(default_animation.has_value()) {
 		Animation* animation = AnimationManager::GetAnimation(default_animation.value());
+		active_animation = animation;
 		current_frame = animation->frames[current_frame_index];
         SetFramesPerSecond(animation->frames_per_second.value_or(frames_per_second));
 	}
 	else {
+		active_animation = nullptr;
 		current_frame = "";
+	}
+	// publish after resetting so a callback can start another animation
+	if(was_playing) {
+		PerformCallback();
 	}
 }
 
 void Animator::SetDefaultAnimation(const std::string& name) {
 	default_animation = name;
+	if(!current_animation.has_value()) {
+		active_animation = AnimationManager::GetAnimation(name);
+	}
 }
 
 void Animator::RemoveDefaultAnimation() {
 	default_animation.reset();
+	if(!current_animation.has_value()) {
+		active_animation = nullptr;
+	}
 }
 
 void Animator::SetFramesPerSecond(float fps) {

@@ -21,6 +21,7 @@ struct Animation
 	std::string name = "";
 	std::vector<std::string> frames;
 	std::optional<float> frames_per_second;
+	bool frames_preloaded = false;
 
 	void PreloadFrames();
 	void UnloadFrames();

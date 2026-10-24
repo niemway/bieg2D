@@ -55,7 +55,7 @@ void Renderer::RenderImage(SDL_Texture* texture, int x, int y, int w, int h){
 }
 
 void Renderer::RenderAllImages(){
-	std::stable_sort(image_draw_calls.begin(), image_draw_calls.end(), [](ImageDrawCall a, ImageDrawCall b) {
+	std::stable_sort(image_draw_calls.begin(), image_draw_calls.end(), [](const ImageDrawCall& a, const ImageDrawCall& b) {
 		return a.sorting_order < b.sorting_order;
 	});
 	SDL_RenderSetScale(renderer, cam_zoom_factor, cam_zoom_factor);
@@ -102,7 +102,7 @@ void Renderer::RenderAllImages(){
 }
 
 void Renderer::RenderAllUI(){
-	std::stable_sort(ui_draw_calls.begin(), ui_draw_calls.end(), [](UIDrawCall a, UIDrawCall b) {
+	std::stable_sort(ui_draw_calls.begin(), ui_draw_calls.end(), [](const UIDrawCall& a, const UIDrawCall& b) {
 		return a.sorting_order < b.sorting_order;
 	});
 	for(auto& draw_call : ui_draw_calls){

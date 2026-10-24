@@ -39,7 +39,7 @@ public:
 	void OnUpdate();
 	void OnDestroy();
 
-	std::string GetCurrentFrame();
+	const std::string& GetCurrentFrame();
 	std::string GetCurrentAnimation();
 
 	void PlayAnimation(const std::string& name);
@@ -51,13 +51,17 @@ public:
 	void SetFramesPerSecond(float fps);
     std::string GetCallbackKey();
 private:
-	float current_fps;
+	float current_fps = 8.0f;
 	float game_frames_per_animation_frame = 60.0f/8.0f;
+
+	// animation currently driving playback (current_animation, else default_animation)
+	// AnimationManager never erases entries, so this pointer stays valid
+	Animation* active_animation = nullptr;
 
 	int current_frame_index = 0;
 	std::string current_frame = "";
-	int num_frames = 0;
-	int frames_since_last_frame = 0;
+	// game frames elapsed in the current animation frame, keeps the fractional remainder
+	float frames_since_last_frame = 0.0f;
 
 	void ReturnToDefaultAnimation();
     void PerformCallback();

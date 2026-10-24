@@ -8,10 +8,14 @@
 #include "Animation.hpp"
 
 void Animation::PreloadFrames() {
+	if(frames_preloaded) {
+		return;
+	}
 	// preload all the frames
 	for(const std::string& frame : frames) {
 		ImageLoader::PreloadImage(frame);
 	}
+	frames_preloaded = true;
 }
 
 void Animation::UnloadFrames() {
@@ -19,6 +23,7 @@ void Animation::UnloadFrames() {
 	for(const std::string& frame : frames) {
 		ImageLoader::UnloadImage(frame);
 	}
+	frames_preloaded = false;
 }
 
 void AnimationManager::LoadAnimation(const std::string& name) {
@@ -58,10 +63,12 @@ void AnimationManager::LoadAnimation(const std::string& name) {
 
 Animation* AnimationManager::GetAnimation(const std::string& name) {
 	// if the animation is not loaded, load it
-	if(animations.find(name) == animations.end()) {
+	auto it = animations.find(name);
+	if(it == animations.end()) {
 		LoadAnimation(name);
+		it = animations.find(name);
 	}
-	return &animations[name];
+	return &it->second;
 }
 
 void AnimationManager::PreloadAnimation(const std::string& name) {
@@ -83,9 +90,10 @@ void AnimationManager::PreloadAllAnimations() {
 }
 
 void AnimationManager::UnloadAnimation(const std::string& name) {
-	// if the animation is loaded, free it
-	if(animations.find(name) != animations.end()) {
-		animations[name].UnloadFrames();
-		animations.erase(name);
+	// if the animation is loaded, free its frames
+	// the entry itself is kept so Animation* held by animators stays valid
+	auto it = animations.find(name);
+	if(it != animations.end()) {
+		it->second.UnloadFrames();
 	}
 }
