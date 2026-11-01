@@ -475,3 +475,9 @@ xcuserdata/
 *.app
 sdl_user_input.txt
 .vscode/settings.json
+
+# local agent config, prebuilt binary, debug input
+.claude/
+/game_engine
+/debug_input.txt
+render_logger.txt
